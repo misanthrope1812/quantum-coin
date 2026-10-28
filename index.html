@@ -108,37 +108,15 @@
   .orbit.o2::before{ top:auto; bottom:-3.5px; background:var(--plat); box-shadow:0 0 12px var(--plat); }
 
   .coin-holder{
-    --thick:calc(var(--size) * .072);
     position:relative; width:var(--size); height:var(--size);
-    perspective:1100px; border-radius:50%; outline:none;
+    border-radius:50%; outline:none;
   }
   .coin-holder:focus-visible{ box-shadow:0 0 0 3px var(--bg), 0 0 0 5px rgba(233,196,106,.6); }
-  /* Тень без filter:blur — мягкость даёт сам градиент: размытие каждый кадр на iPhone тормозит */
-  .shadow{
-    position:absolute; inset:1%; border-radius:50%;
-    background:radial-gradient(closest-side, rgba(0,0,0,.78), rgba(0,0,0,.45) 45%, rgba(0,0,0,.14) 78%, transparent);
-    transform:translate3d(0, 7%, 0);
-    will-change:transform, opacity;
-  }
-  .coin{ position:absolute; inset:0; transform-style:preserve-3d; will-change:transform; }
-  .face, .edge{ position:absolute; inset:0; border-radius:50%; }
-  /* Грани — готовые картинки (img/*.webp, исходник — tools/faces.html), а не живой SVG:
-     Safari перерисовывал сложный вектор при каждом повороте и масштабе, отсюда рывки.
-     Без overflow:hidden — маска со скруглением в 3D тоже дорогая, а углы картинки и так прозрачные. */
-  .face{
-    -webkit-backface-visibility:hidden; backface-visibility:hidden;
-    transform:translateZ(calc(var(--thick) / 2));
-  }
-  .face.tails{ transform:rotateX(180deg) translateZ(calc(var(--thick) / 2)); }
-  .face img{ display:block; width:100%; height:100%; }
-  .sheen, .shade{ position:absolute; inset:0; border-radius:50%; opacity:0; }
-  .sheen{ background:linear-gradient(165deg, transparent 28%, rgba(255,250,232,.6) 47%, transparent 64%); }
-  .shade{ background:#140d03; }
-  .edge{
-    inset:.5%;
-    background:
-      linear-gradient(90deg, rgba(0,0,0,.6), transparent 26%, rgba(255,240,200,.38) 50%, transparent 74%, rgba(0,0,0,.6)),
-      repeating-linear-gradient(90deg, #7a5418 0 1.4px, #d6a743 1.4px 2.8px);
+  /* Монету, гурт, блики и тень рисует app.js на этом холсте. Он больше монеты:
+     в полёте она поднимается и растёт, а тень уходит вниз. Центр холста — центр монеты */
+  #coinCanvas{
+    position:absolute; left:-25%; top:-45%; width:150%; height:190%;
+    pointer-events:none;
   }
 
   /* ---------- результат ---------- */
@@ -206,6 +184,7 @@
     transition:color .2s, background .2s;
   }
   .reset:active, .reset:hover{ color:var(--dim); background:rgba(255,255,255,.04); }
+  .ver{ margin:-4px 0 6px; text-align:center; font-family:var(--f-mono); font-size:9.5px; letter-spacing:.08em; color:var(--mute); opacity:.7; }
 
   @keyframes spin{ to{ transform:rotate(360deg); } }
   @keyframes pulse{ 50%{ opacity:.35; } }
@@ -235,11 +214,7 @@
     <div class="orbit o2"></div>
     <div class="orbit"></div>
     <div class="coin-holder" id="coinHolder" role="button" tabindex="0" aria-label="Подбросить монету">
-      <div class="shadow" id="coinShadow"></div>
-      <div class="coin" id="coin">
-        <div class="face heads"><img src="img/heads.webp" width="1024" height="1024" alt="" draggable="false"><div class="sheen"></div><div class="shade"></div></div>
-        <div class="face tails"><img src="img/tails.webp" width="1024" height="1024" alt="" draggable="false"><div class="sheen"></div><div class="shade"></div></div>
-      </div>
+      <canvas id="coinCanvas" aria-hidden="true"></canvas>
     </div>
   </div>
 
@@ -259,6 +234,7 @@
       <div class="stat"><span>Бросков</span><b id="cN">0</b></div>
     </div>
     <button class="reset" id="resetBtn" type="button">сбросить статистику</button>
+    <div class="ver">версия 5</div>
   </footer>
 </div>
 

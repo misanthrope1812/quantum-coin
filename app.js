@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
-  const holder = $('coinHolder'), coin = $('coin'), shadowEl = $('coinShadow');
+  const holder = $('coinHolder'), coinCanvas = $('coinCanvas');
   const result = $('result'), hashEl = $('hash');
   const sourceTag = $('sourceTag'), sourceDot = $('sourceDot'), sourceLabel = $('sourceLabel');
   const hint = $('hint'), historyEl = $('history'), ratioEl = $('ratio');
@@ -64,22 +64,85 @@
     return { byte: arr[0], source: 'local' };
   }
 
-  /* ================= Монета ================= */
-  const faces = { heads: coin.querySelector('.face.heads'), tails: coin.querySelector('.face.tails') };
-  // решка до первого броска не видна, и Safari распаковал бы её прямо в полёте — делаем это заранее
-  Object.values(faces).forEach(f => { const img = f.querySelector('img'); if (img.decode) img.decode().catch(() => {}); });
-  const sheen = { heads: faces.heads.querySelector('.sheen'), tails: faces.tails.querySelector('.sheen') };
-  const shade = { heads: faces.heads.querySelector('.shade'), tails: faces.tails.querySelector('.shade') };
+  /* ================= Монета =================
+     Рисуется на одном <canvas>, а не стопкой CSS-3D слоёв: iPhone растрировал эти слои заново
+     при каждом повороте и масштабе, и бросок превращался в слайд-шоу.
+     Монета вращается вокруг горизонтальной оси, поэтому хватает плоской проекции:
+     грань — круг, сжатый по вертикали на |cos|, гурт — полоса между эллипсами двух граней.
+     Всё тяжёлое (грани под нужный размер, тень, блик, насечка гурта) рисуется заранее в спрайты,
+     а в кадре остаётся пять drawImage. */
+  const cctx = coinCanvas.getContext('2d');
+  const faceImg = { heads: new Image(), tails: new Image() };
+  let sprites = null;
+  let cw = 0, ch = 0, cdpr = 1;   // размер холста монеты в CSS-пикселях и его плотность
 
-  // Гурт: стопка тонких дисков между гранями даёт толщину и насечку при взгляде с ребра.
-  // Каждый диск — отдельный слой в памяти видеокарты, поэтому их немного: щели между ними
-  // заметны лишь в пределах градуса от ребра, а во вращении — никогда
-  const EDGE_LAYERS = 8;
-  for (let i = 0; i < EDGE_LAYERS; i++) {
-    const e = document.createElement('div');
-    e.className = 'edge';
-    e.style.transform = `translateZ(calc(var(--thick) * ${((i + 0.5) / EDGE_LAYERS - 0.5).toFixed(3)}))`;
-    coin.insertBefore(e, coin.firstChild);
+  Object.keys(faceImg).forEach(k => {
+    faceImg[k].onload = buildSprites;
+    faceImg[k].src = 'img/' + k + '.webp';
+  });
+
+  const sprite = (w, h) => {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+    return c;
+  };
+
+  function buildSprites() {
+    const S = sizePx;
+    if (!S || !Object.values(faceImg).every(i => i.complete && i.naturalWidth)) return;
+    // грани — с запасом на подъём (в полёте монета крупнее в 1.36 раза)
+    const fpx = S * 1.2 * cdpr;
+    const face = {};
+    for (const k in faceImg) {
+      face[k] = sprite(fpx, fpx);
+      const g = face[k].getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(faceImg[k], 0, 0, fpx, fpx);
+    }
+
+    // блик: косая светлая полоса внутри круга (как linear-gradient 165deg)
+    const sheen = sprite(fpx, fpx), sg = sheen.getContext('2d');
+    const dx = Math.sin(165 * Math.PI / 180), dy = -Math.cos(165 * Math.PI / 180), half = fpx * (Math.abs(dx) + Math.abs(dy)) / 2;
+    const lg = sg.createLinearGradient(fpx / 2 - dx * half, fpx / 2 - dy * half, fpx / 2 + dx * half, fpx / 2 + dy * half);
+    lg.addColorStop(0.28, 'rgba(255,250,232,0)');
+    lg.addColorStop(0.47, 'rgba(255,250,232,.6)');
+    lg.addColorStop(0.64, 'rgba(255,250,232,0)');
+    sg.beginPath(); sg.arc(fpx / 2, fpx / 2, fpx / 2, 0, Math.PI * 2); sg.fillStyle = lg; sg.fill();
+
+    // тень: мягкое пятно из градиента
+    const spx = S * 0.98 * cdpr, shadow = sprite(spx, spx), shg = shadow.getContext('2d');
+    const rg = shg.createRadialGradient(spx / 2, spx / 2, 0, spx / 2, spx / 2, spx / 2);
+    rg.addColorStop(0, 'rgba(0,0,0,.78)');
+    rg.addColorStop(0.45, 'rgba(0,0,0,.45)');
+    rg.addColorStop(0.78, 'rgba(0,0,0,.14)');
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    shg.fillStyle = rg; shg.fillRect(0, 0, spx, spx);
+
+    // гурт: насечка 1.4px тёмная / 1.4px светлая, сверху объём — темнее к краям, блик посередине
+    const epx = S * 1.36 * cdpr, edge = sprite(epx, 4), eg = edge.getContext('2d');
+    const step = 1.4 * cdpr * (epx / (S * cdpr));
+    for (let x = 0; x < epx; x += step * 2) {
+      eg.fillStyle = '#7a5418'; eg.fillRect(x, 0, step, 4);
+      eg.fillStyle = '#d6a743'; eg.fillRect(x + step, 0, step, 4);
+    }
+    const vg = eg.createLinearGradient(0, 0, epx, 0);
+    vg.addColorStop(0, 'rgba(0,0,0,.6)'); vg.addColorStop(0.26, 'rgba(0,0,0,0)');
+    vg.addColorStop(0.5, 'rgba(255,240,200,.38)');
+    vg.addColorStop(0.74, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.6)');
+    eg.fillStyle = vg; eg.fillRect(0, 0, epx, 4);
+
+    sprites = { face, sheen, shadow, edge };
+  }
+
+  function layoutCoin() {
+    sizePx = holder.offsetWidth;
+    // плотность 2 хватает и на iPhone с ретиной 3x: монета в движении, а пикселей втрое меньше
+    cdpr = Math.min(2, window.devicePixelRatio || 1);
+    cw = coinCanvas.offsetWidth; ch = coinCanvas.offsetHeight;
+    coinCanvas.width = Math.round(cw * cdpr);
+    coinCanvas.height = Math.round(ch * cdpr);
+    cctx.setTransform(cdpr, 0, 0, cdpr, 0, 0);
+    buildSprites();
   }
 
   const OMEGA = 1280;   // скорость вращения в воздухе, °/с
@@ -136,21 +199,56 @@
     const idle = !toss && !reduceMotion;
     const ax = angle + (idle ? 4 * Math.sin(t * 1.1) : 0);
     const ay = tilt + (idle ? 5 * Math.sin(t * 0.7) : 0);
-    const s = 1 + 0.36 * lift;
-    coin.style.transform =
-      `translate3d(0,${(-lift * sizePx * 0.22).toFixed(2)}px,0) scale(${s.toFixed(4)}) rotateX(${ax.toFixed(2)}deg) rotateY(${ay.toFixed(2)}deg)`;
+    const g = cctx;
+    g.clearRect(0, 0, cw, ch);
+    if (!sprites) return;
 
-    const rad = ax * Math.PI / 180, c = Math.cos(rad), sn = Math.sin(rad);
-    const k = 1 - 0.4 * lift;
-    shadowEl.style.transform =
-      `translate3d(${(lift * sizePx * 0.06).toFixed(1)}px,${(sizePx * (0.07 + lift * 0.3)).toFixed(1)}px,0) scale(${k.toFixed(3)},${(k * (0.12 + 0.88 * Math.abs(c))).toFixed(3)})`;
-    shadowEl.style.opacity = (0.9 - 0.5 * lift).toFixed(3);
+    const S = sizePx, s = 1 + 0.36 * lift;
+    const rad = ax * Math.PI / 180, c = Math.cos(rad), sn = Math.sin(rad), ac = Math.abs(c);
+    const sx = Math.cos(ay * Math.PI / 180);   // наклон вбок лишь сужает монету
+    const cx = cw / 2, cy = ch / 2 - lift * S * 0.22;
+    const R = S / 2 * s;
 
-    const sh = ((1 - Math.abs(c)) * 0.6).toFixed(3);
-    shade.heads.style.opacity = sh;
-    shade.tails.style.opacity = sh;
-    sheen.heads.style.opacity = (Math.max(0, sn) * 0.9 + (idle ? 0.12 + 0.1 * Math.sin(t * 0.8) : 0)).toFixed(3);
-    sheen.tails.style.opacity = (Math.max(0, -sn) * 0.9 + (idle ? 0.12 + 0.1 * Math.sin(t * 0.8) : 0)).toFixed(3);
+    // тень на «столе»: в полёте меньше, бледнее и сдвинута; плоская, когда монета стоит на ребре
+    const k = 1 - 0.4 * lift, sd = S * 0.98;
+    const shW = sd * k, shH = sd * k * (0.12 + 0.88 * ac);
+    g.globalAlpha = 0.9 - 0.5 * lift;
+    g.drawImage(sprites.shadow, cw / 2 + lift * S * 0.06 - shW / 2, ch / 2 + S * (0.07 + lift * 0.3) - shH / 2, shW, shH);
+
+    // гурт: две грани смещены на полтолщины по нормали, между ними — полоса с насечкой
+    const e = S * 0.036 * s * sn, rx = R * 0.99 * sx, ry = R * 0.99 * ac;
+    if (Math.abs(e) > 0.2) {
+      g.globalAlpha = 1;
+      g.save();
+      g.beginPath();
+      g.ellipse(cx, cy - e, rx, ry, 0, 0, Math.PI * 2);
+      g.ellipse(cx, cy + e, rx, ry, 0, 0, Math.PI * 2);
+      g.rect(cx - rx, cy - Math.abs(e), rx * 2, Math.abs(e) * 2);
+      g.clip();
+      g.drawImage(sprites.edge, cx - rx, cy - Math.abs(e) - ry, rx * 2, (Math.abs(e) + ry) * 2);
+      g.restore();
+    }
+
+    // видимая грань: орёл, пока нормаль смотрит на нас, иначе решка (она развёрнута, поэтому не вверх ногами)
+    if (ac > 0.002) {
+      const side = c >= 0 ? 'heads' : 'tails';
+      const fy = c >= 0 ? cy - e : cy + e;
+      g.save();
+      g.translate(cx, fy);
+      g.scale(sx, ac);
+      g.globalAlpha = 1;
+      g.drawImage(sprites.face[side], -R, -R, R * 2, R * 2);
+      const glint = (side === 'heads' ? Math.max(0, sn) : Math.max(0, -sn)) * 0.9 + (idle ? 0.12 + 0.1 * Math.sin(t * 0.8) : 0);
+      if (glint > 0.01) { g.globalAlpha = Math.min(1, glint); g.drawImage(sprites.sheen, -R, -R, R * 2, R * 2); }
+      const shade = (1 - ac) * 0.6;
+      if (shade > 0.01) {
+        g.globalAlpha = shade;
+        g.fillStyle = '#140d03';
+        g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill();
+      }
+      g.restore();
+    }
+    g.globalAlpha = 1;
   }
 
   /* ================= Статистика ================= */
@@ -289,7 +387,7 @@
     canvas.width = innerWidth * dpr;
     canvas.height = innerHeight * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    sizePx = holder.offsetWidth;
+    layoutCoin();
   }
   function initParticles() {
     particles = Array.from({ length: reduceMotion ? 0 : 30 }, () => ({
@@ -324,5 +422,11 @@
   /* ================= PWA ================= */
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    // пришла новая версия — сразу перезагружаемся в неё (но не при самой первой установке)
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController && !reloaded && !busy) { reloaded = true; location.reload(); }
+    });
   }
 })();
