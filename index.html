@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0A0907">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Golden Dollar">
+<meta name="format-detection" content="telephone=no">
+<meta name="description" content="Квантовая монетка: орёл или решка по аппаратному квантовому генератору случайных чисел ANU.">
+<title>Орёл / Решка — доллар США</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600&family=Unbounded:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --bg:#0A0907;
+    --card:rgba(255,240,210,.035);
+    --line:rgba(255,232,190,.09);
+    --ink:#F4ECDD;
+    --dim:#8D8576;
+    --mute:#615A4E;
+    --gold:#E9C46A;
+    --plat:#C8D2DE;
+    --f-display:'Unbounded','Manrope',system-ui,sans-serif;
+    --f-body:'Manrope',system-ui,sans-serif;
+    --f-mono:'JetBrains Mono',ui-monospace,monospace;
+    --size:min(66vw, 300px, 37vh);
+  }
+  @supports (height:100dvh){ :root{ --size:min(66vw, 300px, 37dvh); } }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html{ -webkit-text-size-adjust:100%; }
+  html,body{
+    height:100%; margin:0; padding:0;
+    background:var(--bg); color:var(--ink);
+    font-family:var(--f-body);
+    overflow:hidden; overscroll-behavior:none;
+  }
+  body{ touch-action:manipulation; -webkit-font-smoothing:antialiased; }
+
+  /* Это приложение, а не документ: никакого текстового курсора, выделения и лупы */
+  html, body, body *{
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none; -webkit-user-drag:none;
+    cursor:default; caret-color:transparent;
+  }
+  svg, svg *{ pointer-events:none; }
+  button, .coin-holder{ cursor:pointer; }
+
+  /* ---------- фон ---------- */
+  .bg{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(60% 42% at 50% 44%, rgba(233,196,106,.15), transparent 70%),
+      radial-gradient(120% 60% at 50% -10%, rgba(255,214,140,.07), transparent 60%),
+      radial-gradient(140% 90% at 50% 120%, #000, transparent 60%),
+      var(--bg);
+  }
+  .bg::after{
+    content:""; position:absolute; inset:0; opacity:.08;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  canvas#particles{ position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; opacity:.6; }
+
+  /* ---------- раскладка ---------- */
+  .wrap{
+    position:relative; z-index:1;
+    height:100%; max-width:520px; margin:0 auto;
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(env(safe-area-inset-top) + 18px) 20px calc(env(safe-area-inset-bottom) + 16px);
+  }
+  header{ text-align:center; }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 13px 6px 11px; border:1px solid var(--line); border-radius:999px;
+    background:var(--card);
+    font-family:var(--f-mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--gold);
+  }
+  .eyebrow i{ width:6px; height:6px; border-radius:50%; background:var(--gold); box-shadow:0 0 10px var(--gold); animation:pulse 2.4s ease-in-out infinite; }
+  h1{
+    margin:14px 0 0;
+    font-family:var(--f-display); font-weight:500;
+    font-size:clamp(24px, 7.2vw, 31px); line-height:1.1; letter-spacing:-.02em;
+  }
+  h1 span{ color:var(--dim); font-weight:400; }
+
+  /* ---------- сцена и монета ---------- */
+  .stage{ flex:1; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; position:relative; }
+  .orbit{
+    position:absolute; width:calc(var(--size) * 1.32); aspect-ratio:1; border-radius:50%;
+    border:1px dashed rgba(233,196,106,.16);
+    animation:spin 60s linear infinite;
+  }
+  .orbit::before{
+    content:""; position:absolute; top:-3.5px; left:50%; margin-left:-3px;
+    width:6px; height:6px; border-radius:50%;
+    background:var(--gold); box-shadow:0 0 12px var(--gold);
+  }
+  .orbit.o2{ width:calc(var(--size) * 1.64); border:1px solid rgba(255,232,190,.05); animation-duration:95s; animation-direction:reverse; }
+  .orbit.o2::before{ top:auto; bottom:-3.5px; background:var(--plat); box-shadow:0 0 12px var(--plat); }
+
+  .coin-holder{
+    --thick:calc(var(--size) * .072);
+    position:relative; width:var(--size); height:var(--size);
+    perspective:1100px; border-radius:50%; outline:none;
+  }
+  .coin-holder:focus-visible{ box-shadow:0 0 0 3px var(--bg), 0 0 0 5px rgba(233,196,106,.6); }
+  .shadow{
+    position:absolute; inset:5%; border-radius:50%;
+    background:radial-gradient(closest-side, rgba(0,0,0,.8), rgba(0,0,0,.4) 65%, transparent);
+    filter:blur(9px);
+    transform:translate3d(0, 7%, 0);
+  }
+  .coin{ position:absolute; inset:0; transform-style:preserve-3d; will-change:transform; }
+  .face, .edge{ position:absolute; inset:0; border-radius:50%; }
+  .face{
+    overflow:hidden;
+    -webkit-backface-visibility:hidden; backface-visibility:hidden;
+    transform:translateZ(calc(var(--thick) / 2));
+  }
+  .face.tails{ transform:rotateX(180deg) translateZ(calc(var(--thick) / 2)); }
+  .face svg{ display:block; width:100%; height:100%; }
+  .sheen, .shade{ position:absolute; inset:0; border-radius:50%; opacity:0; }
+  .sheen{ background:linear-gradient(165deg, transparent 28%, rgba(255,250,232,.6) 47%, transparent 64%); }
+  .shade{ background:#140d03; }
+  .edge{
+    inset:.5%;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,.6), transparent 26%, rgba(255,240,200,.38) 50%, transparent 74%, rgba(0,0,0,.6)),
+      repeating-linear-gradient(90deg, #7a5418 0 1.4px, #d6a743 1.4px 2.8px);
+  }
+
+  /* ---------- результат ---------- */
+  .readout{ min-height:112px; display:flex; flex-direction:column; align-items:center; text-align:center; }
+  .result{
+    font-family:var(--f-display); font-weight:700;
+    font-size:clamp(30px, 9.4vw, 40px); line-height:1.05; letter-spacing:.07em;
+    padding:0 .1em;
+    opacity:0; transform:translateY(8px) scale(.97);
+    transition:opacity .45s ease, transform .55s cubic-bezier(.2,.9,.25,1.2);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    background-image:linear-gradient(180deg, #FFF2C8, #E9C46A 55%, #B0832A);
+  }
+  .result.r{ background-image:linear-gradient(180deg, #FFFFFF, #C8D2DE 58%, #7F8A99); }
+  .result.show{ opacity:1; transform:none; }
+  .hash{
+    margin-top:9px; font-family:var(--f-mono); font-size:11px; letter-spacing:.04em;
+    color:var(--dim); opacity:0; transition:opacity .4s ease .1s;
+  }
+  .hash.show{ opacity:1; }
+  .source-tag{
+    display:inline-flex; align-items:center; gap:7px; margin-top:9px;
+    padding:5px 11px; border:1px solid var(--line); border-radius:999px; background:var(--card);
+    font-family:var(--f-mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--dim); opacity:0; transition:opacity .4s ease .18s;
+  }
+  .source-tag.show{ opacity:1; }
+  .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim); }
+  .dot.live{ background:#7FD3A8; box-shadow:0 0 8px #7FD3A8; }
+  .dot.local{ background:var(--gold); box-shadow:0 0 8px var(--gold); }
+  .hint{ margin-top:4px; font-size:13.5px; color:var(--dim); letter-spacing:.01em; }
+  .hint:empty{ display:none; }
+
+  /* ---------- статистика ---------- */
+  footer{
+    width:100%; max-width:420px; margin-top:6px;
+    padding:14px 16px 4px;
+    border:1px solid var(--line); border-radius:22px;
+    background:linear-gradient(180deg, rgba(255,240,210,.05), rgba(255,240,210,.015));
+    -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  }
+  .history{ display:flex; gap:5px; flex-wrap:wrap; justify-content:center; margin-bottom:12px; }
+  .history:empty{ display:none; }
+  .chip{
+    width:20px; height:20px; border-radius:50%;
+    display:grid; place-items:center;
+    font-family:var(--f-mono); font-size:9.5px; font-weight:500;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.22), 0 1px 3px rgba(0,0,0,.5);
+  }
+  .chip.o{ background:radial-gradient(circle at 34% 28%, #FFF2C8, #E2B550 52%, #946A22); color:#4a3209; }
+  .chip.r{ background:radial-gradient(circle at 34% 28%, #FFFFFF, #C8D2DE 52%, #737E8D); color:#262c35; }
+  .chip.new{ animation:pop .45s cubic-bezier(.2,.9,.3,1.4); }
+  .ratio{ height:3px; border-radius:3px; background:rgba(200,210,222,.28); overflow:hidden; }
+  .ratio i{ display:block; height:100%; width:50%; background:linear-gradient(90deg, #A97C27, #E9C46A); transition:width .6s cubic-bezier(.2,.8,.2,1); }
+  .stats{ display:grid; grid-template-columns:repeat(3, 1fr); padding:12px 0 2px; }
+  .stat{ text-align:center; }
+  .stat span{ display:block; font-family:var(--f-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
+  .stat b{ display:block; margin-top:4px; font-family:var(--f-body); font-weight:600; font-size:24px; letter-spacing:-.01em; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .stat.o b{ color:var(--gold); }
+  .stat.r b{ color:var(--plat); }
+  .reset{
+    display:block; margin:4px auto 6px; padding:8px 14px;
+    background:none; border:0; border-radius:999px;
+    font-family:var(--f-mono); font-size:11px; letter-spacing:.04em; color:var(--mute);
+    transition:color .2s, background .2s;
+  }
+  .reset:active, .reset:hover{ color:var(--dim); background:rgba(255,255,255,.04); }
+
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes pulse{ 50%{ opacity:.35; } }
+  @keyframes pop{ from{ transform:scale(.3); opacity:0; } }
+
+  @media (max-height:620px){
+    h1{ margin-top:10px; font-size:22px; }
+    .readout{ min-height:100px; }
+    .stat b{ font-size:19px; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .orbit, .eyebrow i{ animation:none; }
+  }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<canvas id="particles"></canvas>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow"><i></i>quantum coin · eisenhower $1</div>
+    <h1>Орёл <span>или</span> Решка</h1>
+  </header>
+
+  <div class="stage">
+    <div class="orbit o2"></div>
+    <div class="orbit"></div>
+    <div class="coin-holder" id="coinHolder" role="button" tabindex="0" aria-label="Подбросить монету">
+      <div class="shadow" id="coinShadow"></div>
+      <div class="coin" id="coin">
+        <div class="face heads"><div class="sheen"></div><div class="shade"></div></div>
+        <div class="face tails"><div class="sheen"></div><div class="shade"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="readout" aria-live="polite">
+    <div class="result" id="result">—</div>
+    <div class="hash" id="hash">&nbsp;</div>
+    <div class="source-tag" id="sourceTag"><span class="dot" id="sourceDot"></span><span id="sourceLabel">ожидание</span></div>
+    <div class="hint" id="hint">Коснитесь монеты, чтобы подбросить</div>
+  </div>
+
+  <footer>
+    <div class="history" id="history"></div>
+    <div class="ratio"><i id="ratio"></i></div>
+    <div class="stats">
+      <div class="stat o"><span>Орёл</span><b id="cO">0</b></div>
+      <div class="stat r"><span>Решка</span><b id="cR">0</b></div>
+      <div class="stat"><span>Бросков</span><b id="cN">0</b></div>
+    </div>
+    <button class="reset" id="resetBtn" type="button">сбросить статистику</button>
+  </footer>
+</div>
+
+<script src="coin.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
