@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!-- Исходник картинок img/heads.webp и img/tails.webp: рисует грань монеты из coin.js на прозрачном фоне.
+     Пересобрать после правок в coin.js — см. README, раздел «Картинки монеты». -->
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=block">
+<style>
+  html, body { margin: 0; background: transparent; }
+  #face, #face svg { display: block; width: 1024px; height: 1024px; }
+</style>
+</head>
+<body>
+<div id="face"></div>
+<script src="coin.js"></script>
+<script>
+  const kind = new URLSearchParams(location.search).get('face') || 'heads';
+  document.fonts.load('700 12px Cinzel').then(() => {
+    document.getElementById('face').innerHTML = QuantumCoin.face(kind);
+  });
+</script>
+</body>
+</html>

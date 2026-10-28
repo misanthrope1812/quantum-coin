@@ -66,13 +66,15 @@
 
   /* ================= Монета ================= */
   const faces = { heads: coin.querySelector('.face.heads'), tails: coin.querySelector('.face.tails') };
-  faces.heads.insertAdjacentHTML('afterbegin', QuantumCoin.face('heads'));
-  faces.tails.insertAdjacentHTML('afterbegin', QuantumCoin.face('tails'));
+  // решка до первого броска не видна, и Safari распаковал бы её прямо в полёте — делаем это заранее
+  Object.values(faces).forEach(f => { const img = f.querySelector('img'); if (img.decode) img.decode().catch(() => {}); });
   const sheen = { heads: faces.heads.querySelector('.sheen'), tails: faces.tails.querySelector('.sheen') };
   const shade = { heads: faces.heads.querySelector('.shade'), tails: faces.tails.querySelector('.shade') };
 
-  // Гурт: стопка тонких дисков между гранями даёт толщину и насечку при взгляде с ребра
-  const EDGE_LAYERS = 14;
+  // Гурт: стопка тонких дисков между гранями даёт толщину и насечку при взгляде с ребра.
+  // Каждый диск — отдельный слой в памяти видеокарты, поэтому их немного: щели между ними
+  // заметны лишь в пределах градуса от ребра, а во вращении — никогда
+  const EDGE_LAYERS = 8;
   for (let i = 0; i < EDGE_LAYERS; i++) {
     const e = document.createElement('div');
     e.className = 'edge';
@@ -281,7 +283,9 @@
   const ctx = canvas.getContext('2d');
   let particles = [];
   function resize() {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    // пылинки размыты и полупрозрачны — чёткость ретины им не нужна, а полноэкранный холст
+    // в 4 раза меньше по пикселям заметно разгружает телефон
+    const dpr = 1;
     canvas.width = innerWidth * dpr;
     canvas.height = innerHeight * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -300,6 +304,8 @@
     }));
   }
   function tick(now) {
+    // во время броска пыль замирает: все силы — монете
+    if (toss) { requestAnimationFrame(tick); return; }
     ctx.clearRect(0, 0, innerWidth, innerHeight);
     particles.forEach(p => {
       p.x += p.vx; p.y += p.vy;

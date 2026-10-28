@@ -1,9 +1,9 @@
 /* Service worker: приложение открывается без сети (кроме запроса к ANU — он всегда идёт в сеть).
    После правок в файлах увеличьте VERSION, чтобы телефоны забрали новую версию. */
-const VERSION = 'qc-v3';
+const VERSION = 'qc-v4';
 const FONTS = 'qc-fonts';
 const SHELL = [
-  './', './index.html', './app.js', './coin.js', './manifest.webmanifest',
+  './', './index.html', './app.js', './manifest.webmanifest', './img/heads.webp', './img/tails.webp',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
   './sounds/flick.mp3', './sounds/land.mp3'
 ];

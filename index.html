@@ -17,7 +17,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600&family=Unbounded:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600&family=Unbounded:wght@400;500;700&display=swap">
 <style>
   :root{
     --bg:#0A0907;
@@ -51,7 +51,7 @@
     -webkit-touch-callout:none; -webkit-user-drag:none;
     cursor:default; caret-color:transparent;
   }
-  svg, svg *{ pointer-events:none; }
+  svg, svg *, img{ pointer-events:none; }
   button, .coin-holder{ cursor:pointer; }
 
   /* ---------- фон ---------- */
@@ -113,21 +113,24 @@
     perspective:1100px; border-radius:50%; outline:none;
   }
   .coin-holder:focus-visible{ box-shadow:0 0 0 3px var(--bg), 0 0 0 5px rgba(233,196,106,.6); }
+  /* Тень без filter:blur — мягкость даёт сам градиент: размытие каждый кадр на iPhone тормозит */
   .shadow{
-    position:absolute; inset:5%; border-radius:50%;
-    background:radial-gradient(closest-side, rgba(0,0,0,.8), rgba(0,0,0,.4) 65%, transparent);
-    filter:blur(9px);
+    position:absolute; inset:1%; border-radius:50%;
+    background:radial-gradient(closest-side, rgba(0,0,0,.78), rgba(0,0,0,.45) 45%, rgba(0,0,0,.14) 78%, transparent);
     transform:translate3d(0, 7%, 0);
+    will-change:transform, opacity;
   }
   .coin{ position:absolute; inset:0; transform-style:preserve-3d; will-change:transform; }
   .face, .edge{ position:absolute; inset:0; border-radius:50%; }
+  /* Грани — готовые картинки (img/*.webp, исходник — tools/faces.html), а не живой SVG:
+     Safari перерисовывал сложный вектор при каждом повороте и масштабе, отсюда рывки.
+     Без overflow:hidden — маска со скруглением в 3D тоже дорогая, а углы картинки и так прозрачные. */
   .face{
-    overflow:hidden;
     -webkit-backface-visibility:hidden; backface-visibility:hidden;
     transform:translateZ(calc(var(--thick) / 2));
   }
   .face.tails{ transform:rotateX(180deg) translateZ(calc(var(--thick) / 2)); }
-  .face svg{ display:block; width:100%; height:100%; }
+  .face img{ display:block; width:100%; height:100%; }
   .sheen, .shade{ position:absolute; inset:0; border-radius:50%; opacity:0; }
   .sheen{ background:linear-gradient(165deg, transparent 28%, rgba(255,250,232,.6) 47%, transparent 64%); }
   .shade{ background:#140d03; }
@@ -174,8 +177,8 @@
     width:100%; max-width:420px; margin-top:6px;
     padding:14px 16px 4px;
     border:1px solid var(--line); border-radius:22px;
-    background:linear-gradient(180deg, rgba(255,240,210,.05), rgba(255,240,210,.015));
-    -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+    /* вместо backdrop-filter: размытие поверх анимированных частиц пересчитывалось каждый кадр */
+    background:linear-gradient(180deg, rgba(255,240,210,.05), rgba(255,240,210,.015)), rgba(10,9,7,.6);
   }
   .history{ display:flex; gap:5px; flex-wrap:wrap; justify-content:center; margin-bottom:12px; }
   .history:empty{ display:none; }
@@ -234,8 +237,8 @@
     <div class="coin-holder" id="coinHolder" role="button" tabindex="0" aria-label="Подбросить монету">
       <div class="shadow" id="coinShadow"></div>
       <div class="coin" id="coin">
-        <div class="face heads"><div class="sheen"></div><div class="shade"></div></div>
-        <div class="face tails"><div class="sheen"></div><div class="shade"></div></div>
+        <div class="face heads"><img src="img/heads.webp" width="1024" height="1024" alt="" draggable="false"><div class="sheen"></div><div class="shade"></div></div>
+        <div class="face tails"><img src="img/tails.webp" width="1024" height="1024" alt="" draggable="false"><div class="sheen"></div><div class="shade"></div></div>
       </div>
     </div>
   </div>
@@ -259,7 +262,6 @@
   </footer>
 </div>
 
-<script src="coin.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

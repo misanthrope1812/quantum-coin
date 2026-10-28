@@ -19,9 +19,10 @@
 |---|---|
 | `index.html` | разметка и стили |
 | `app.js` | квантовый запас, анимация броска, статистика, регистрация service worker |
-| `coin.js` | рисует обе стороны монеты в SVG |
+| `img/heads.webp`, `img/tails.webp` | стороны монеты — готовые картинки 1024×1024 |
 | `sw.js` | офлайн-кэш. **После любых правок увеличьте `VERSION`** (`qc-v1` → `qc-v2`), иначе телефоны покажут старую версию |
 | `manifest.webmanifest`, `icons/` | данные для установки как приложения |
+| `tools/coin.js`, `tools/faces.html` | исходник сторон монеты в SVG (сайту не нужен) |
 | `sounds/` | звуки броска: `flick.mp3` — щелчок при подбросе, `land.mp3` — монета падает на стол |
 
 Звуки взяты с [Pixabay](https://pixabay.com/service/license-summary/) (бесплатная лицензия, указание автора не требуется),
@@ -29,6 +30,18 @@
 [coin flip](https://pixabay.com/sound-effects/film-special-effects-coin-flip-37787/) (freesound_community) и
 [Wood Surface Single Coin Payout 4](https://pixabay.com/sound-effects/film-special-effects-wood-surface-single-coin-payout-4-215284/) (floraphonic).
 На iPhone звук, как и у других приложений, выключается переключателем «Без звука».
+
+## Картинки монеты
+
+Стороны монеты нарисованы в SVG (`tools/coin.js`), но сайт показывает их готовыми картинками:
+живой вектор с надписями и рельефом Safari на iPhone перерисовывал в каждом кадре броска, и анимация дёргалась.
+После правок в `tools/coin.js` пересоберите картинки в Chrome без окна (шрифт Cinzel грузится из Google Fonts, нужен интернет):
+
+```bash
+chrome --headless=new --hide-scrollbars --default-background-color=00000000 --window-size=1024,1024 --virtual-time-budget=10000 --screenshot=heads.png "file:///<путь>/tools/faces.html?face=heads"
+```
+
+То же с `?face=tails`, затем переведите PNG в WebP (качество ~86) и положите в `img/`.
 
 ## Публикация на GitHub Pages
 
