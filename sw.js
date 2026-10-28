@@ -1,6 +1,6 @@
 /* Service worker: приложение открывается без сети (кроме запроса к ANU — он всегда идёт в сеть).
    После правок в файлах увеличьте VERSION, чтобы телефоны забрали новую версию. */
-const VERSION = 'qc-v2';
+const VERSION = 'qc-v3';
 const FONTS = 'qc-fonts';
 const SHELL = [
   './', './index.html', './app.js', './coin.js', './manifest.webmanifest',
