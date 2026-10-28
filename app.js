@@ -115,7 +115,7 @@
         const u = Math.min(1, (now - toss.f0) / toss.T), hit = 0.7;
         angle = toss.fa + toss.delta * easeOut3(u);
         lift = u < hit ? toss.fl * (1 - Math.pow(u / hit, 2)) : 0.06 * Math.sin(Math.PI * (u - hit) / (1 - hit));
-        if (u >= hit && !toss.thud) { toss.thud = true; if (navigator.vibrate) navigator.vibrate(8); }
+        if (u >= hit && !toss.thud) { toss.thud = true; sfx.play('land', 0.9); if (navigator.vibrate) navigator.vibrate(8); }
         if (u >= 1) {
           angle = toss.result === 'heads' ? 0 : 180;
           lift = 0;
@@ -188,12 +188,48 @@
     sourceTag.classList.remove('show');
   }
 
+  /* ================= Звук =================
+     Щелчок при подбросе и стук о стол при приземлении (звуки с Pixabay, см. README).
+     Web Audio, а не <audio>: на iOS только он играет без задержки. Буферы декодируются сразу,
+     а сам контекст браузер разрешает запустить только из касания — это делает resume() в flip(). */
+  const sfx = {
+    ctx: null, buf: {},
+    init() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ctx = new AC();
+      ['flick', 'land'].forEach(name => fetch('sounds/' + name + '.mp3')
+        .then(res => res.arrayBuffer())
+        // старый Safari умеет decodeAudioData только с колбэками
+        .then(data => new Promise((ok, fail) => this.ctx.decodeAudioData(data, ok, fail)))
+        .then(b => { this.buf[name] = b; })
+        .catch(() => { /* без звука — не беда */ }));
+    },
+    resume() {
+      // на iOS контекст ещё и «interrupted» после сворачивания приложения
+      if (this.ctx && this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+    },
+    play(name, volume) {
+      const b = this.buf[name];
+      if (!this.ctx || !b) return;
+      const src = this.ctx.createBufferSource(), gain = this.ctx.createGain();
+      src.buffer = b;
+      gain.gain.value = volume;
+      src.connect(gain);
+      gain.connect(this.ctx.destination);
+      src.start();
+    }
+  };
+  sfx.init();
+
   /* ================= Бросок ================= */
   let busy = false;
 
   async function flip() {
     if (busy) return;
     busy = true;
+    sfx.resume();
+    sfx.play('flick', 0.8);
     hint.textContent = '';
     hideReadout();
 

@@ -22,6 +22,13 @@
 | `coin.js` | рисует обе стороны монеты в SVG |
 | `sw.js` | офлайн-кэш. **После любых правок увеличьте `VERSION`** (`qc-v1` → `qc-v2`), иначе телефоны покажут старую версию |
 | `manifest.webmanifest`, `icons/` | данные для установки как приложения |
+| `sounds/` | звуки броска: `flick.mp3` — щелчок при подбросе, `land.mp3` — монета падает на стол |
+
+Звуки взяты с [Pixabay](https://pixabay.com/service/license-summary/) (бесплатная лицензия, указание автора не требуется),
+подрезаны и выровнены по громкости:
+[coin flip](https://pixabay.com/sound-effects/film-special-effects-coin-flip-37787/) (freesound_community) и
+[Wood Surface Single Coin Payout 4](https://pixabay.com/sound-effects/film-special-effects-wood-surface-single-coin-payout-4-215284/) (floraphonic).
+На iPhone звук, как и у других приложений, выключается переключателем «Без звука».
 
 ## Публикация на GitHub Pages
 
